@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Movie Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h1 class="text-2xl font-bold mb-6">Movie Search</h1>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <input 
+                        type="text" 
+                        id="searchQuery" 
+                        placeholder="Enter movie title..."
+                        class="w-full p-2 border rounded"
+                    >
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <select id="quality" class="p-2 border rounded">
+                        <option value="">Any Quality</option>
+                        <option value="720p">720p</option>
+                        <option value="1080p">1080p</option>
+                        <option value="2160p">2160p</option>
+                    </select>
+                    
+                    <input 
+                        type="number" 
+                        id="minRating" 
+                        placeholder="Min Rating (0-10)" 
+                        min="0" 
+                        max="10" 
+                        step="0.1"
+                        class="p-2 border rounded"
+                    >
+                </div>
+            </div>
+            
+            <button 
+                onclick="searchMovies()"
+                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+            >
+                Search
+            </button>
+            
+            <div id="results" class="mt-6 grid grid-cols-1 gap-4"></div>
+        </div>
+    </div>
+
+    <script>
+        async function searchMovies() {
+            const query = document.getElementById('searchQuery').value;
+            const quality = document.getElementById('quality').value;
+            const minRating = document.getElementById('minRating').value;
+            const resultsDiv = document.getElementById('results');
+            
+            if (!query) {
+                alert('Please enter a search query');
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<div class="text-center">Searching...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        quality: quality || undefined,
+                        minimum_rating: minRating ? parseFloat(minRating) : 0
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    resultsDiv.innerHTML = data.data.map(movie => `
+                        <div class="bg-white p-4 rounded-lg shadow">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h2 class="text-xl font-bold">${movie.title} (${movie.year})</h2>
+                                    <p class="text-gray-600">Rating: ${movie.rating}/10</p>
+                                    <p class="text-gray-600">Language: ${movie.language}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <h3 class="font-semibold mb-2">Available Downloads:</h3>
+                                <div class="grid grid-cols-1 gap-2">
+                                    ${movie.torrents.map(t => `
+                                        <div class="border rounded p-2">
+                                            <div class="flex justify-between items-center">
+                                                <div>
+                                                    <span class="font-medium">${t.quality}</span>
+                                                    <span class="text-gray-500 text-sm ml-2">${t.size}</span>
+                                                </div>
+                                                <div class="text-sm">
+                                                    <span class="text-green-600">Seeds: ${t.seeds}</span>
+                                                    <span class="text-red-600 ml-2">Peers: ${t.peers}</span>
+                                                </div>
+                                            </div>
+                                            <div class="mt-2">
+                                                <a href="${t.url}" 
+                                                   class="text-blue-500 hover:underline text-sm"
+                                                   target="_blank">
+                                                    Download ${t.type}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="bg-yellow-50 border border-yellow-200 rounded p-4">
+                            ${data.message}
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded p-4">
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Add enter key support for search
+        document.getElementById('searchQuery').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchMovies();
+            }
+        });
+    </script>
+</body>
+</html>
