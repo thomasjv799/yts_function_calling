@@ -12,7 +12,15 @@ class Config:
     DOWNLOAD_PATH: str = os.getenv("DOWNLOAD_PATH", "./downloads")
     OPENSUBTITLES_USERNAME: str = os.getenv("OPENSUBTITLES_USERNAME", "")
     OPENSUBTITLES_PASSWORD: str = os.getenv("OPENSUBTITLES_PASSWORD", "")
-    WORKER_POLL_INTERVAL: int = int(os.getenv("WORKER_POLL_INTERVAL", "5"))
+
+    # Fix 1: Safe parsing of WORKER_POLL_INTERVAL
+    _raw_poll = os.getenv("WORKER_POLL_INTERVAL", "5")
+    try:
+        WORKER_POLL_INTERVAL: int = int(_raw_poll)
+    except ValueError:
+        raise ValueError(
+            f"WORKER_POLL_INTERVAL must be an integer, got: {_raw_poll!r}"
+        )
 
     @staticmethod
     def validate() -> None:
@@ -23,4 +31,10 @@ class Config:
 
     @staticmethod
     def async_db_url() -> str:
-        return Config.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # Fix 2: Guard against empty DATABASE_URL and handle postgres:// alias
+        if not Config.DATABASE_URL:
+            raise ValueError("DATABASE_URL is not set; call Config.validate() first")
+        url = Config.DATABASE_URL
+        if url.startswith("postgres://"):
+            return "postgresql+asyncpg://" + url[len("postgres://"):]
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
