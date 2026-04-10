@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, Integer, Float, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -24,5 +24,5 @@ class DownloadJob(Base):
     file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     discord_user_id: Mapped[str] = mapped_column(String, nullable=False)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
