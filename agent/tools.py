@@ -69,3 +69,54 @@ async def get_poster_url(movie_id: int) -> str:
     if data["status"] != "ok":
         return ""
     return data["data"]["movie"].get("large_cover_image", "")
+
+
+from db import queue as db_queue
+
+
+def build_queue_tools(discord_user_id: str) -> list:
+    """Create queue management tools with discord_user_id baked into queue_download."""
+
+    @tool
+    async def check_duplicate(movie_title: str, movie_year: int) -> str:
+        """Check if a movie is already downloaded or in the download queue."""
+        exists = await db_queue.check_duplicate(movie_title, movie_year)
+        if exists:
+            return f"{movie_title} ({movie_year}) is already in the queue or downloaded."
+        return f"{movie_title} ({movie_year}) is not in the queue."
+
+    @tool
+    async def queue_download(
+        movie_title: str, movie_year: int, movie_id: int, torrent_url: str, quality: str
+    ) -> str:
+        """Queue a movie for download after the user has confirmed."""
+        job = await db_queue.add_job(
+            movie_title, movie_year, movie_id, torrent_url, quality, discord_user_id
+        )
+        return f"Queued {movie_title} ({movie_year}) [{quality}]. Job ID: {job.id}"
+
+    @tool
+    async def get_queue_status() -> str:
+        """Get the current status of all downloads (downloading, pending, done, failed)."""
+        jobs = await db_queue.get_all_jobs()
+        if not jobs:
+            return "No downloads in queue."
+        status_map = {
+            "downloading": lambda j: f"⏬ {j.movie_title} ({j.movie_year}) — {j.progress:.0f}% at {j.speed}",
+            "pending": lambda j: f"⏳ {j.movie_title} ({j.movie_year}) — pending",
+            "done": lambda j: f"✅ {j.movie_title} ({j.movie_year}) — done",
+            "failed": lambda j: f"❌ {j.movie_title} ({j.movie_year}) — failed: {j.error}",
+            "cancelled": lambda j: f"🚫 {j.movie_title} ({j.movie_year}) — cancelled",
+        }
+        lines = [status_map.get(j.status, lambda j: f"? {j.movie_title}")(j) for j in jobs]
+        return "\n".join(lines)
+
+    @tool
+    async def cancel_download(movie_title: str) -> str:
+        """Cancel a pending download by movie title."""
+        success = await db_queue.cancel_job_by_title(movie_title)
+        if success:
+            return f"Cancelled download for {movie_title}."
+        return f"No pending download found for {movie_title}."
+
+    return [check_duplicate, queue_download, get_queue_status, cancel_download]
