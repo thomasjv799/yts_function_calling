@@ -16,6 +16,9 @@ services:
 
   bot:
     build: .
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     depends_on:
       postgres:
         condition: service_healthy
@@ -28,6 +31,7 @@ services:
       OPENSUBTITLES_USERNAME: ${OPENSUBTITLES_USERNAME:-}
       OPENSUBTITLES_PASSWORD: ${OPENSUBTITLES_PASSWORD:-}
       WORKER_POLL_INTERVAL: ${WORKER_POLL_INTERVAL:-5}
+      YTS_BASE_URL: ${YTS_BASE_URL:-https://yts.mx/api/v2}
     volumes:
       - downloads:/downloads
     restart: unless-stopped

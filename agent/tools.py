@@ -1,8 +1,9 @@
+import os
 from typing import Optional
 import httpx
 from langchain_core.tools import tool
 
-YTS_BASE = "https://yts.mx/api/v2"
+YTS_BASE = os.getenv("YTS_BASE_URL", "https://yts.mx/api/v2").rstrip("/")
 
 
 @tool
