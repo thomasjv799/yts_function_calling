@@ -14,7 +14,7 @@ async def search_movies(query: str, quality: Optional[str] = None, minimum_ratin
     if minimum_rating > 0:
         params["minimum_rating"] = minimum_rating
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
         resp = await client.get(f"{YTS_BASE}/list_movies.json", params=params)
         data = resp.json()
 
@@ -34,7 +34,7 @@ async def search_movies(query: str, quality: Optional[str] = None, minimum_ratin
 @tool
 async def get_movie_details(movie_id: int) -> str:
     """Get full details for a movie: synopsis, rating, and available torrents with seeds and size."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
         resp = await client.get(
             f"{YTS_BASE}/movie_details.json",
             params={"movie_id": movie_id, "with_images": True, "with_cast": True},
@@ -46,7 +46,7 @@ async def get_movie_details(movie_id: int) -> str:
 
     m = data["data"]["movie"]
     torrent_lines = [
-        f"  {t['quality']} {t['type']} | {t['size']} | Seeds: {t['seeds']} | {t['url']}"
+        f"  {t.get('quality', '?')} {t.get('type', '?')} | {t.get('size', 'Unknown')} | Seeds: {t.get('seeds', 0)} | {t.get('url', '')}"
         for t in m.get("torrents", [])
     ]
     synopsis = m.get("description_full", "N/A")[:300]
@@ -60,7 +60,7 @@ async def get_movie_details(movie_id: int) -> str:
 
 async def get_poster_url(movie_id: int) -> str:
     """Fetch the large cover image URL for a movie. Used for Discord notifications."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
         resp = await client.get(
             f"{YTS_BASE}/movie_details.json",
             params={"movie_id": movie_id, "with_images": True},
