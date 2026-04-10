@@ -32,6 +32,8 @@ services:
       OPENSUBTITLES_PASSWORD: ${OPENSUBTITLES_PASSWORD:-}
       WORKER_POLL_INTERVAL: ${WORKER_POLL_INTERVAL:-5}
       YTS_BASE_URL: ${YTS_BASE_URL:-https://yts.mx/api/v2}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
     volumes:
       - downloads:/downloads
     restart: unless-stopped
