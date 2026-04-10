@@ -2,7 +2,7 @@
 import logging
 import discord
 from langchain_core.messages import HumanMessage
-from agent.graph import get_agent
+from agent.graph import get_agent, clear_thread
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,17 @@ async def handle_message(message: discord.Message) -> None:
 
         await message.channel.send(response)
 
+    except ValueError as e:
+        if "INVALID_CHAT_HISTORY" in str(e):
+            logger.warning("Corrupted chat history for user %s — clearing thread", user_id)
+            await clear_thread(user_id)
+            await message.channel.send(
+                "Your conversation history got into a bad state and has been reset. "
+                "Please send your message again."
+            )
+        else:
+            logger.exception("Agent ValueError for user %s", user_id)
+            await message.channel.send("Something went wrong on my end. Check the logs.")
     except Exception:
         logger.exception("Agent error handling message from %s", user_id)
         await message.channel.send(

@@ -34,6 +34,7 @@ async def _get_checkpointer() -> AsyncPostgresSaver:
         _pool = AsyncConnectionPool(
             conninfo=Config.DATABASE_URL,
             max_size=10,
+            open=False,
             kwargs={"autocommit": True, "prepare_threshold": 0},
         )
         await _pool.open()
@@ -41,6 +42,19 @@ async def _get_checkpointer() -> AsyncPostgresSaver:
         await _checkpointer.setup()
         logger.info("LangGraph checkpointer ready.")
     return _checkpointer
+
+
+async def clear_thread(discord_user_id: str) -> None:
+    """Delete all LangGraph checkpoint state for a user's conversation thread."""
+    global _pool
+    if _pool is None:
+        logger.warning("Cannot clear thread for %s — pool not initialised", discord_user_id)
+        return
+    logger.info("Clearing corrupted checkpoint thread for user %s", discord_user_id)
+    async with _pool.connection() as conn:
+        for table in ("checkpoint_writes", "checkpoint_blobs", "checkpoints"):
+            await conn.execute(f"DELETE FROM {table} WHERE thread_id = %s", (discord_user_id,))
+    logger.info("Checkpoint thread cleared for user %s", discord_user_id)
 
 
 async def get_agent(discord_user_id: str):
