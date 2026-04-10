@@ -1,9 +1,12 @@
+import logging
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langchain_groq import ChatGroq
 from psycopg_pool import AsyncConnectionPool
 from agent.tools import search_movies, get_movie_details, build_queue_tools
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 _checkpointer: AsyncPostgresSaver | None = None
 _pool: AsyncConnectionPool | None = None
@@ -27,6 +30,7 @@ Be concise. Plain text only — no markdown headers or bold."""
 async def _get_checkpointer() -> AsyncPostgresSaver:
     global _checkpointer, _pool
     if _checkpointer is None:
+        logger.info("Initialising Postgres connection pool for LangGraph checkpointer...")
         _pool = AsyncConnectionPool(
             conninfo=Config.DATABASE_URL,
             max_size=10,
@@ -35,11 +39,13 @@ async def _get_checkpointer() -> AsyncPostgresSaver:
         await _pool.open()
         _checkpointer = AsyncPostgresSaver(_pool)
         await _checkpointer.setup()
+        logger.info("LangGraph checkpointer ready.")
     return _checkpointer
 
 
 async def get_agent(discord_user_id: str):
     """Create a ReAct agent for the given Discord user backed by the shared Postgres checkpointer."""
+    logger.debug("Building agent for user %s", discord_user_id)
     checkpointer = await _get_checkpointer()
     llm = ChatGroq(model="llama-3.3-70b-versatile", api_key=Config.GROQ_API_KEY)
     tools = [search_movies, get_movie_details] + build_queue_tools(discord_user_id)

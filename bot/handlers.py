@@ -1,22 +1,37 @@
 # bot/handlers.py
+import logging
 import discord
 from langchain_core.messages import HumanMessage
 from agent.graph import get_agent
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_message(message: discord.Message) -> None:
     """Route a Discord DM through the LangGraph agent and reply with the response."""
     user_id = str(message.author.id)
+    logger.info("Message from %s: %r", user_id, message.content[:100])
 
-    async with message.channel.typing():
-        agent = await get_agent(user_id)
-        result = await agent.ainvoke(
-            {"messages": [HumanMessage(content=message.content)]},
-            config={"configurable": {"thread_id": user_id}},
+    try:
+        async with message.channel.typing():
+            logger.debug("Initialising agent for user %s", user_id)
+            agent = await get_agent(user_id)
+
+            logger.debug("Invoking agent for user %s", user_id)
+            result = await agent.ainvoke(
+                {"messages": [HumanMessage(content=message.content)]},
+                config={"configurable": {"thread_id": user_id}},
+            )
+            response: str = result["messages"][-1].content
+            logger.info("Agent response for %s: %r", user_id, response[:200])
+
+        await message.channel.send(response)
+
+    except Exception:
+        logger.exception("Agent error handling message from %s", user_id)
+        await message.channel.send(
+            "Something went wrong on my end. Check the logs."
         )
-        response: str = result["messages"][-1].content
-
-    await message.channel.send(response)
 
 
 async def send_completion_notification(
@@ -30,6 +45,7 @@ async def send_completion_notification(
     """DM the user that their download completed, with a movie poster embed."""
     from agent.tools import get_poster_url
 
+    logger.info("Sending completion notification to %s for %s (%s)", discord_user_id, movie_title, movie_year)
     user = await bot.fetch_user(int(discord_user_id))
     poster_url = await get_poster_url(movie_id)
 
@@ -52,5 +68,6 @@ async def send_failure_notification(
     error: str,
 ) -> None:
     """DM the user that their download failed."""
+    logger.warning("Sending failure notification to %s for %s (%s): %s", discord_user_id, movie_title, movie_year, error)
     user = await bot.fetch_user(int(discord_user_id))
     await user.send(f"❌ Failed to download **{movie_title} ({movie_year})**: {error}")
